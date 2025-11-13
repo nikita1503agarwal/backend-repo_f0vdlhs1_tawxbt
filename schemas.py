@@ -1,48 +1,59 @@
 """
-Database Schemas
+Database Schemas for School Mini-Market POS
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model maps to a MongoDB collection whose name is the lowercase of the class name.
+Use these models to validate incoming data and to keep a consistent structure in the DB.
 """
-
+from typing import Optional, List
 from pydantic import BaseModel, Field
-from typing import Optional
 
-# Example schemas (replace with your own):
-
-class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
 
 class Product(BaseModel):
     """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
+    Products available in the school mini-market
+    Collection: "product"
     """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+    name: str = Field(..., description="Product name")
+    sku: str = Field(..., description="Stock keeping unit (unique code)")
+    price: float = Field(..., ge=0, description="Unit price")
+    stock: int = Field(0, ge=0, description="Units in stock")
+    category: Optional[str] = Field(None, description="Category e.g. snacks, drinks")
+    barcode: Optional[str] = Field(None, description="Barcode if available")
+    active: bool = Field(True, description="Whether product is available for sale")
 
-# Add your own schemas here:
-# --------------------------------------------------
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+class Student(BaseModel):
+    """
+    Students who buy from the mini-market (optional, can sell to guests)
+    Collection: "student"
+    """
+    name: str = Field(...)
+    class_name: Optional[str] = Field(None, description="Class or grade, e.g. 7A")
+    student_id: Optional[str] = Field(None, description="School-provided ID")
+
+
+class SaleItem(BaseModel):
+    """
+    Line item within a sale transaction (embedded in Sale)
+    Not a collection by itself.
+    """
+    product_id: str = Field(..., description="Mongo ObjectId as string")
+    name: str
+    sku: str
+    price: float = Field(..., ge=0)
+    quantity: int = Field(..., ge=1)
+    subtotal: float = Field(..., ge=0)
+
+
+class Sale(BaseModel):
+    """
+    Sale transactions
+    Collection: "sale"
+    """
+    items: List[SaleItem]
+    total: float = Field(..., ge=0)
+    paid: float = Field(..., ge=0)
+    change: float = Field(..., ge=0)
+    customer_name: Optional[str] = Field(None)
+    student_ref: Optional[str] = Field(None, description="Linked student _id as string, if any")
+    payment_method: str = Field("cash", description="cash | card | other")
